@@ -2,12 +2,39 @@
 
 Use this checklist for manual QA before deployment and again after production OAuth/Supabase setup. Mark each workflow as pass, fail, or blocked, and note the account, browser, and date tested.
 
+## Latest Production Auth QA - 2026-06-03
+
+- PASS: Production URL `https://tomato-syndicate-ten.vercel.app/` serves the app
+  with HTTP 200.
+- PASS: Production smoke run using `.tools/headless-workflow-check.cjs` against
+  the Vercel URL completed 30 pass, 0 fail, 6 blocked. Signed-out screen renders
+  in the deployed bundle.
+- PASS: Supabase auth public settings show Google and email enabled; Apple is
+  disabled.
+- PASS: Supabase accepts `redirect_to=https://tomato-syndicate-ten.vercel.app/`
+  for Google and redirects to Google with callback
+  `https://igesyghkejktphbzrhyt.supabase.co/auth/v1/callback`.
+- PASS: Following the Google authorize redirect reaches a normal Google sign-in
+  page with no `redirect_uri_mismatch`.
+- PARTIAL: Email magic-link request to `erg.wake@gmail.com` with production
+  `redirect_to` returned HTTP 200 and Supabase logs recorded `mail.send`
+  `mail_type=magic_link`.
+- PASS: Manual production browser run confirmed Google callback, magic-link inbox
+  click, refresh persistence, sign-out, and same-cloud-data reload all work.
+- BLOCKED: Apple sign-in is intentionally deferred. Supabase Apple provider is
+  disabled and `/authorize?provider=apple` returns 400 `provider is not enabled`.
+  The Apple button is disabled locally until Apple Developer credentials are
+  added; production still needs a successful redeploy.
+
 ## Test Accounts And Baseline
 
-- [ ] Account A can sign in with Google.
+- [x] Account A can sign in with Google. PASS 2026-06-03: manual production
+  browser run completed successfully.
 - [ ] Account B can sign in with Google for friend and leaderboard tests.
-- [ ] Account A can sign in with Apple.
-- [ ] Account A can create/sign in with an email magic link.
+- [ ] Account A can sign in with Apple. BLOCKED 2026-06-03: Apple disabled in
+  Supabase; defer and hide/disable button until configured.
+- [x] Account A can create/sign in with an email magic link. PASS 2026-06-03:
+  production magic-link send and inbox click-through completed successfully.
 - [ ] Account A starts from a clean reset using `More > Settings > Reset garden data`.
 - [ ] After reset, Account A has one active empty season and no gardens, beds, plants, harvest sessions, or harvest rows.
 - [ ] The header shows online and saved/synced status after the reset.
@@ -15,14 +42,21 @@ Use this checklist for manual QA before deployment and again after production OA
 
 ## Authentication And Session
 
-- [ ] Signed-out user sees the sign-in screen.
-- [ ] Google sign-in redirects back to the app successfully.
-- [ ] Apple sign-in redirects back to the app successfully.
-- [ ] Email magic link sends successfully and redirects back to the app.
-- [ ] Existing signed-in session persists after refresh.
-- [ ] Sign out returns to the sign-in screen.
+- [x] Signed-out user sees the sign-in screen. PASS 2026-06-03: production
+  headless smoke rendered sign-in controls.
+- [x] Google sign-in redirects back to the app successfully. PASS 2026-06-03:
+  manual production browser run completed successfully.
+- [ ] Apple sign-in redirects back to the app successfully. BLOCKED 2026-06-03:
+  Apple provider disabled.
+- [x] Email magic link sends successfully and redirects back to the app. PASS
+  2026-06-03: manual production inbox click-through completed successfully.
+- [x] Existing signed-in session persists after refresh. PASS 2026-06-03: manual
+  production browser run completed successfully.
+- [x] Sign out returns to the sign-in screen. PASS 2026-06-03: manual production
+  browser run completed successfully.
 - [ ] Sign out does not delete local backup data.
-- [ ] Sign back in loads the same cloud data.
+- [x] Sign back in loads the same cloud data. PASS 2026-06-03: manual production
+  browser run completed successfully.
 - [ ] Local demo mode opens without an account.
 - [ ] Local demo mode does not overwrite signed-in cloud data.
 
@@ -220,13 +254,26 @@ Use this checklist for manual QA before deployment and again after production OA
 
 ## Production Readiness
 
-- [ ] Production Vercel URL is added to Supabase auth redirect URLs.
-- [ ] Production Vercel URL is added to Google OAuth authorized redirect/origin settings.
+- [x] Production Vercel URL is added to Supabase auth redirect URLs. PASS
+  2026-06-03: Supabase accepted production `redirect_to` for Google and email
+  magic link. Dashboard visual confirmation still useful if available.
+- [x] Production Vercel URL is added to Google OAuth authorized redirect/origin settings.
+  PASS 2026-06-03: Google sign-in completed successfully on production. Google
+  Cloud dashboard values were not directly readable through connectors, but the
+  live callback behavior validates the configuration.
 - [ ] Production Vercel URL is added to Apple OAuth authorized redirect/origin settings.
-- [ ] Supabase email passwordless auth is enabled and email templates use the production redirect URL.
-- [ ] Google sign-in works on production URL.
-- [ ] Apple sign-in works on production URL.
-- [ ] Email magic-link sign-in works on production URL.
+  BLOCKED 2026-06-03: Apple provider disabled and Apple Developer credentials
+  are not available.
+- [x] Supabase email passwordless auth is enabled and email templates use the production redirect URL.
+  PASS 2026-06-03: production magic-link send and inbox click-through returned
+  successfully to the app.
+- [x] Google sign-in works on production URL. PASS 2026-06-03: manual production
+  browser run completed successfully.
+- [ ] Apple sign-in works on production URL. BLOCKED 2026-06-03: defer Apple;
+  Apple button is disabled locally until configured, pending successful
+  production redeploy.
+- [x] Email magic-link sign-in works on production URL. PASS 2026-06-03: manual
+  production inbox click-through completed successfully.
 - [ ] Supabase RLS allows current user CRUD for owned garden data.
 - [ ] Supabase RLS allows intended friend-visible reads only.
 - [ ] Supabase RLS prevents non-friend access to private garden data.

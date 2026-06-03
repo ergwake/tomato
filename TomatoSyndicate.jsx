@@ -934,9 +934,9 @@ function SignInView({ localData, onDemo }) {
               onClick={() => signIn("google")} style={{ marginBottom: 10 }}>
               {loading === "google" ? "Redirecting..." : "Sign in with Google"}
             </button>
-            <button className="ts-btn ts-btn--ghost ts-btn--block" disabled={!!loading}
-              onClick={() => signIn("apple")} style={{ marginBottom: 18 }}>
-              {loading === "apple" ? "Redirecting..." : "Sign in with Apple"}
+            <button className="ts-btn ts-btn--ghost ts-btn--block" disabled
+              title="Apple sign-in is not configured yet" style={{ marginBottom: 18 }}>
+              Sign in with Apple
             </button>
             <form onSubmit={sendEmailLink} style={{ marginBottom: 18 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
