@@ -6,6 +6,8 @@ Use this checklist for manual QA before deployment and again after production OA
 
 - [ ] Account A can sign in with Google.
 - [ ] Account B can sign in with Google for friend and leaderboard tests.
+- [ ] Account A can sign in with Apple.
+- [ ] Account A can create/sign in with an email magic link.
 - [ ] Account A starts from a clean reset using `More > Settings > Reset garden data`.
 - [ ] After reset, Account A has one active empty season and no gardens, beds, plants, harvest sessions, or harvest rows.
 - [ ] The header shows online and saved/synced status after the reset.
@@ -15,6 +17,8 @@ Use this checklist for manual QA before deployment and again after production OA
 
 - [ ] Signed-out user sees the sign-in screen.
 - [ ] Google sign-in redirects back to the app successfully.
+- [ ] Apple sign-in redirects back to the app successfully.
+- [ ] Email magic link sends successfully and redirects back to the app.
 - [ ] Existing signed-in session persists after refresh.
 - [ ] Sign out returns to the sign-in screen.
 - [ ] Sign out does not delete local backup data.
@@ -218,7 +222,11 @@ Use this checklist for manual QA before deployment and again after production OA
 
 - [ ] Production Vercel URL is added to Supabase auth redirect URLs.
 - [ ] Production Vercel URL is added to Google OAuth authorized redirect/origin settings.
+- [ ] Production Vercel URL is added to Apple OAuth authorized redirect/origin settings.
+- [ ] Supabase email passwordless auth is enabled and email templates use the production redirect URL.
 - [ ] Google sign-in works on production URL.
+- [ ] Apple sign-in works on production URL.
+- [ ] Email magic-link sign-in works on production URL.
 - [ ] Supabase RLS allows current user CRUD for owned garden data.
 - [ ] Supabase RLS allows intended friend-visible reads only.
 - [ ] Supabase RLS prevents non-friend access to private garden data.

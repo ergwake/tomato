@@ -4,7 +4,7 @@ import {
   Pencil, Trash2, Copy, Archive, X, Check, Download, ChevronRight,
   CalendarDays, MapPin, CircleAlert, Undo2, WifiOff, Wifi, Save,
   Crown, Sun, Sparkles, Search, Link2, LogOut, UserPlus, Users,
-  ShieldAlert, UserMinus, Ban, Clock
+  ShieldAlert, UserMinus, Ban, Clock, Mail
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
@@ -864,12 +864,48 @@ export default function TomatoSyndicate() {
 /* ------------------------------------------------------------------ */
 function SignInView({ localData, onDemo }) {
   const [loading, setLoading] = useState(null);
+  const [email, setEmail] = useState("");
+  const [authMessage, setAuthMessage] = useState("");
+  const [authError, setAuthError] = useState("");
+  const authRedirectTo = () => window.location.origin + window.location.pathname;
   const signIn = async (provider) => {
     setLoading(provider);
-    await supa.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: window.location.origin + window.location.pathname },
-    });
+    setAuthMessage("");
+    setAuthError("");
+    try {
+      const { error } = await supa.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: authRedirectTo() },
+      });
+      if (error) throw error;
+    } catch (e) {
+      setAuthError(e.message || "Sign-in failed. Check the auth provider settings.");
+      setLoading(null);
+    }
+  };
+  const sendEmailLink = async (e) => {
+    e.preventDefault();
+    const trimmed = email.trim();
+    if (!trimmed) return;
+    setLoading("email");
+    setAuthMessage("");
+    setAuthError("");
+    try {
+      const { error } = await supa.auth.signInWithOtp({
+        email: trimmed,
+        options: {
+          emailRedirectTo: authRedirectTo(),
+          shouldCreateUser: true,
+        },
+      });
+      if (error) throw error;
+      setAuthMessage(`Check ${trimmed} for a sign-in link.`);
+      setEmail("");
+    } catch (err) {
+      setAuthError(err.message || "Email sign-in failed. Check Supabase email auth settings.");
+    } finally {
+      setLoading(null);
+    }
   };
   return (
     <div className="ts-root"><style>{CSS}</style>
@@ -902,6 +938,23 @@ function SignInView({ localData, onDemo }) {
               onClick={() => signIn("apple")} style={{ marginBottom: 18 }}>
               {loading === "apple" ? "Redirecting..." : "Sign in with Apple"}
             </button>
+            <form onSubmit={sendEmailLink} style={{ marginBottom: 18 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
+                <input className="ts-input" type="email" inputMode="email" autoComplete="email"
+                  aria-label="Email address" placeholder="email@example.com" value={email}
+                  disabled={!!loading} onChange={(e) => setEmail(e.target.value)} />
+                <button className="ts-btn ts-btn--vine ts-btn--icon" type="submit"
+                  title="Email sign-in link" disabled={!!loading || !email.trim()}>
+                  <Mail size={17} />
+                </button>
+              </div>
+              <button className="ts-btn ts-btn--ghost ts-btn--block" type="submit"
+                disabled={!!loading || !email.trim()} style={{ marginTop: 8 }}>
+                {loading === "email" ? "Sending..." : "Email me a sign-in link"}
+              </button>
+            </form>
+            {authMessage && <div className="ts-note" style={{ marginBottom: 12, textAlign: "left" }}>{authMessage}</div>}
+            {authError && <div className="ts-note" style={{ marginBottom: 12, textAlign: "left", borderColor: "var(--tomato)", color: "var(--tomato2)", background: "#fff0ec" }}>{authError}</div>}
             <div className="ts-divider" />
             <button className="ts-btn ts-btn--ghost ts-btn--block" style={{ marginTop: 10, fontSize: 13 }}
               onClick={onDemo}>

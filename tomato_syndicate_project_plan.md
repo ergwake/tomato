@@ -33,7 +33,7 @@ Tone:
 
 - **Frontend:** React/Vite or Svelte PWA
 - **Backend/Database:** Supabase with PostgreSQL
-- **Authentication:** Google/Apple OAuth
+- **Authentication:** Google/Apple OAuth plus email magic link
 - **Offline Support:** Local harvest queue with later sync
 - **Data Model:** Season-based, plant-level tracking
 
