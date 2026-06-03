@@ -1,0 +1,22 @@
+{
+  "name": "tomato-syndicate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --configLoader native && vite preview --host 127.0.0.1 --configLoader native",
+    "dev:vite": "vite --host 127.0.0.1 --configLoader native",
+    "build": "vite build --configLoader native",
+    "preview": "vite preview --host 127.0.0.1 --configLoader native"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "vite": "^6.3.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "lucide-react": "^0.511.0",
+    "recharts": "^2.15.3"
+  },
+  "devDependencies": {}
+}
