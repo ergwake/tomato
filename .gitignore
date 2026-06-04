@@ -1,7 +1,7 @@
 node_modules/
 dist/
 .tools/
+.vercel/
 .env
 .env.local
 *.log
-

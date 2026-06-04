@@ -21,14 +21,67 @@ Use this checklist for manual QA before deployment and again after production OA
   `mail_type=magic_link`.
 - PASS: Manual production browser run confirmed Google callback, magic-link inbox
   click, refresh persistence, sign-out, and same-cloud-data reload all work.
-- FIXED LOCALLY: Google OAuth and email magic-link requests now force
+- PASS: Google OAuth and email magic-link requests now force
   `https://tomato-syndicate-ten.vercel.app/` as the auth callback instead of
   deriving it from `window.location`, preventing new links from returning to
   `127.0.0.1`.
+- PASS: Google OAuth now sends `prompt=select_account` so desktop sign-in should
+  show Google's account chooser instead of silently reusing an existing Google
+  browser session. Deployed 2026-06-04 in `dpl_4RtWyYy3pfb6AaFNrbotaoedt991`.
+- NOTE: Phone install/sign-in tests should use only
+  `https://tomato-syndicate-ten.vercel.app/`. Vercel SSO deployment protection
+  was disabled on 2026-06-04 because phone Google OAuth was redirecting to a
+  protected Vercel alias and showing Access Required.
+- PASS: Supabase Auth URL Configuration was manually updated to remove
+  localhost / `127.0.0.1` redirect URLs. Phone sign-in now returns to the
+  production Vercel URL.
 - BLOCKED: Apple sign-in is intentionally deferred. Supabase Apple provider is
   disabled and `/authorize?provider=apple` returns 400 `provider is not enabled`.
-  The Apple button is disabled locally until Apple Developer credentials are
-  added; production still needs a successful redeploy.
+  The Apple button is disabled until Apple Developer credentials are added.
+- PASS: Real two-account UI QA for friends and leaderboards is complete.
+- PASS: PWA basics deployed to production on 2026-06-04: manifest, icons,
+  maskable icon, service worker, installability metadata, and app-shell caching.
+  Keep the existing localStorage offline mirror for now.
+- NEXT: Manually verify production installability, phone home-screen launch, and
+  offline app-shell reload behavior on desktop and phone.
+
+## Latest PWA QA - 2026-06-04
+
+- PASS: `npm.cmd run build` completed successfully.
+- PASS: Built `dist/` output includes `manifest.webmanifest`, `sw.js`, and icon
+  files under `dist/icons/`.
+- PASS: Manifest parses and includes standalone display, root start URL/scope,
+  theme/background colors, 192px PNG icon, 512px PNG icon, and maskable 512px
+  PNG icon.
+- PASS: `index.html` includes manifest, SVG favicon, Apple touch icon, theme
+  color, and mobile web app metadata.
+- PASS: `src/main.jsx` registers `/sw.js` only for production builds.
+- PASS: `public/sw.js` uses same-origin-only fetch handling, caches the app
+  shell/icons/manifest, runtime-caches Vite assets, and does not intercept
+  Supabase auth/API requests.
+- PASS: Production deploy `dpl_9CNhkrWYHWQaJ7zQ6xW6EYQjcmam` completed and was
+  aliased to `https://tomato-syndicate-ten.vercel.app`.
+- PASS: Follow-up deployment `dpl_4RtWyYy3pfb6AaFNrbotaoedt991` completed and was
+  aliased to `https://tomato-syndicate-ten.vercel.app`.
+- PASS: Production returns HTTP 200 for `/`, `/manifest.webmanifest`, `/sw.js`,
+  `/icons/icon.svg`, `/icons/icon-192.png`, `/icons/icon-512.png`,
+  `/icons/maskable-512.png`, and `/icons/apple-touch-icon.png`.
+- PASS: Production manifest parses and includes standalone display, root
+  start/scope, theme/background colors, 192px PNG icon, 512px PNG icon, and
+  maskable 512px PNG icon.
+- PASS: Production service worker includes app/runtime cache names, same-origin
+  fetch handling, and Vite asset caching.
+- PASS: Production JS bundle includes Google `select_account` and the canonical
+  `https://tomato-syndicate-ten.vercel.app/` auth redirect.
+- PASS: Canonical production URL returns HTTP 200.
+- PASS: Vercel SSO deployment protection disabled on 2026-06-04. Follow-up
+  verification showed `ssoProtection: null` and previously protected Vercel
+  aliases returning HTTP 200 instead of Access Required.
+- BLOCKED: A full browser installability audit was not completed automatically.
+  In-app browser automation failed to start in the Windows sandbox, and
+  Lighthouse failed during Chrome temp cleanup before writing a report.
+- NOTE: Vite still warns that the single app bundle is over 500 kB. This matches
+  the current hold on splitting `TomatoSyndicate.jsx`; not a PWA blocker.
 
 ## Test Accounts And Baseline
 
@@ -201,6 +254,11 @@ Use this checklist for manual QA before deployment and again after production OA
 
 ## Sync And Offline Behavior
 
+- [x] PWA app shell is cached by a same-origin service worker. PASS 2026-06-04:
+  local PWA basics added and build output verified.
+- [ ] After one online production load, offline refresh serves the app shell.
+- [ ] Offline app shell does not imply cloud sync; Supabase reads/writes still
+  require network.
 - [ ] Header shows saving/saved state after local changes.
 - [ ] Header shows `Cloud sync needs attention` when Supabase write fails.
 - [ ] Local backup preserves unsynced changes after refresh.
@@ -258,9 +316,20 @@ Use this checklist for manual QA before deployment and again after production OA
 
 ## Production Readiness
 
+- [x] Production deployment includes PWA manifest, icons, and service worker.
+  PASS 2026-06-04: live HTTP checks passed for manifest, service worker, and all
+  icon assets.
+- [ ] Production Chrome/Edge installability prompt or install option appears.
+- [ ] Installed production app launches from desktop/mobile home screen.
+- [ ] Production offline reload serves the app shell after one successful online
+  visit.
 - [x] Production Vercel URL is added to Supabase auth redirect URLs. PASS
   2026-06-03: Supabase accepted production `redirect_to` for Google and email
-  magic link. Dashboard visual confirmation still useful if available.
+  magic link. Later dashboard update removed localhost / `127.0.0.1` redirect
+  URLs, and phone sign-in returns to production.
+- [x] Vercel SSO deployment protection is disabled for this public app. PASS
+  2026-06-04: `vercel project protection` reports `ssoProtection: null`; aliases
+  that previously returned Access Required now return the app.
 - [x] Production Vercel URL is added to Google OAuth authorized redirect/origin settings.
   PASS 2026-06-03: Google sign-in completed successfully on production. Google
   Cloud dashboard values were not directly readable through connectors, but the
@@ -272,14 +341,15 @@ Use this checklist for manual QA before deployment and again after production OA
   PASS 2026-06-03: production magic-link send and inbox click-through returned
   successfully to the app.
 - [x] Google sign-in works on production URL. PASS 2026-06-03: manual production
-  browser run completed successfully.
+  browser run completed successfully. PASS 2026-06-04: follow-up deploy adds
+  `prompt=select_account` for the Google account chooser.
 - [ ] Apple sign-in works on production URL. BLOCKED 2026-06-03: defer Apple;
-  Apple button is disabled locally until configured, pending successful
-  production redeploy.
+  Apple button is disabled until configured.
 - [x] Email magic-link sign-in works on production URL. PASS 2026-06-03: manual
   production inbox click-through completed successfully.
 - [ ] Supabase RLS allows current user CRUD for owned garden data.
 - [ ] Supabase RLS allows intended friend-visible reads only.
 - [ ] Supabase RLS prevents non-friend access to private garden data.
 - [ ] Production clean persistence test passes.
-- [ ] Production two-account friend and leaderboard test passes.
+- [x] Production two-account friend and leaderboard test passes. PASS: completed
+  after production auth and Supabase redirect cleanup.

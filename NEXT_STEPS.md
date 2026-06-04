@@ -2,11 +2,38 @@
 
 Handoff brief. Paste relevant parts into a new chat to continue.
 
+## Current app-development status
+
+- Production auth is passing on desktop and phone. Supabase Auth URL
+  Configuration uses the production Vercel URL and localhost / `127.0.0.1`
+  redirects have been removed.
+- 2026-06-04 auth/PWA follow-up: deployment-specific Vercel URLs return
+  `401 Access Required` when Vercel SSO deployment protection is enabled.
+  Vercel SSO deployment protection was disabled on 2026-06-04, and those aliases
+  now return the app instead of Access Required. Google OAuth now sends
+  `prompt=select_account` to force account selection.
+- Apple Sign-In remains intentionally deferred; the Apple button is disabled.
+- Real two-account UI QA for friends and leaderboards is complete.
+- PWA basics were deployed to production on 2026-06-04. Production serves the
+  manifest, app icons, maskable icon, and same-origin app-shell service worker.
+- Next active development task: manually verify installability/home-screen launch
+  and first-load/offline app-shell behavior on desktop and phone.
+- Offline strategy decision: keep the existing whole-state localStorage mirror
+  for now. Do not build a per-record sync queue yet.
+- Hold for now: splitting `TomatoSyndicate.jsx` and adding automated regression
+  tests.
+
 ## Where things stand (as of 2026-06-03)
 
 - **Frontend:** Full MVP implemented in a single ~2,450-line component
   `TomatoSyndicate.jsx` (React 19 + Vite + Supabase + recharts). Builds; local/demo
   headless QA passed (30/30 non-backend checks).
+- **PWA basics:** Added `public/manifest.webmanifest`, icon assets under
+  `public/icons/`, `public/sw.js`, installability metadata in `index.html`, and
+  production-only service worker registration in `src/main.jsx`. The service
+  worker caches only the same-origin app shell/assets and does not replace the
+  Supabase/localStorage data behavior. Deployed to production as
+  `dpl_9CNhkrWYHWQaJ7zQ6xW6EYQjcmam` on 2026-06-04.
 - **Backend:** Live Supabase project `Tomato Syndicate`
   (ref `igesyghkejktphbzrhyt`) has all 8 tables with real data, RLS enabled.
 - **Schema is now in the repo** under `supabase/` as committed migrations
@@ -48,25 +75,46 @@ Handoff brief. Paste relevant parts into a new chat to continue.
   - Auth redirects are now hardcoded to the production Vercel URL
     `https://tomato-syndicate-ten.vercel.app/` for both Google OAuth and email
     magic links, so new sign-in flows cannot return to `127.0.0.1`.
+  - Google OAuth now includes `prompt=select_account`, deployed in
+    `dpl_4RtWyYy3pfb6AaFNrbotaoedt991`, so desktop sign-in should show Google's
+    account chooser instead of silently reusing an existing Google browser
+    session.
+  - Vercel SSO deployment protection was disabled on 2026-06-04 after phone
+    Google sign-in redirected to a Vercel Access Required page. Verification
+    afterwards showed `ssoProtection: null`, with
+    `https://tomato-syndicate-erg-wake.vercel.app/` returning HTTP 200 instead
+    of 401.
+  - Supabase Auth URL configuration was updated manually: the production Site
+    URL is set, localhost / `127.0.0.1` redirect URLs were removed, and phone
+    sign-in now returns to production successfully.
 
 ## What is NOT yet done (the remaining risk)
 
-1. **Retest production auth on phone.** Production Google auth, email magic-link
-   auth, refresh persistence, sign-out, and same-cloud-data reload passed manual
-   desktop QA. The app now forces Google/email auth callbacks to
-   `https://tomato-syndicate-ten.vercel.app/`; after deployment, request a fresh
-   magic link from production and confirm it no longer returns to `127.0.0.1`.
+1. **Production auth is currently passing.** Google auth, email magic-link auth,
+   refresh persistence, sign-out, same-cloud-data reload, and phone redirect
+   behavior are working against the production Vercel URL. Apple remains
+   intentionally deferred.
 2. **Deployment exists.** App is deployed to Vercel under `erg.wake@gmail.com`
    / `erg-wake`.
    - Production URL: `https://tomato-syndicate-ten.vercel.app`
-   - Production deployment: `dpl_8M7uW9Qbm3dsrtBpdc6VLDh7oRTd`
+   - Current production deployment: `dpl_4RtWyYy3pfb6AaFNrbotaoedt991`
+   - Current production commit metadata still points to `e813d0d`
+     (`Force production auth redirects`) with `gitDirty=1`, because the PWA and
+     Google account-chooser deploys were made from the local dirty workspace via
+     Vercel CLI.
    - Project: `erg-wake/tomato-syndicate`
    - Vercel env vars set for Production and Development:
      `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
    - Preview env vars are not yet set; Vercel CLI required a branch-specific
      preview target during setup.
-3. **No PWA layer.** Plan calls it a PWA but there's no manifest and no service
-   worker — currently a plain SPA.
+3. **PWA basics are deployed, but install/offline behavior still needs manual
+   device QA.** Production serves `/manifest.webmanifest`, `/sw.js`, and all icon
+   assets with HTTP 200. Next: verify Chrome/Edge installability, phone
+   home-screen launch, and offline app-shell refresh after one online load.
+   Use the canonical production URL for manual tests:
+   `https://tomato-syndicate-ten.vercel.app/`. Vercel SSO deployment protection
+   is now disabled, so secondary aliases should no longer show Access Required,
+   but the canonical URL remains the intended install/sign-in URL.
 4. **Offline is a simplified whole-state localStorage mirror,** not the per-record
    sync queue the plan specifies. Decide if "good enough" before any big refactor,
    since it's a data-layer decision.
@@ -76,7 +124,7 @@ Handoff brief. Paste relevant parts into a new chat to continue.
 
 ## Recommended order for the next session
 
-### 1. Retest production auth on phone
+### 1. Production auth maintenance
 - Deployment is live on Vercel:
   `https://tomato-syndicate-ten.vercel.app`.
 - Vercel account verified as `erg.wake@gmail.com` / `ergwake`.
@@ -86,9 +134,10 @@ Handoff brief. Paste relevant parts into a new chat to continue.
   disabled. Google authorize checks returned 302 for
   `https://tomato-syndicate-ten.vercel.app/`, so Supabase accepts that redirect;
   Google's auth page did not show `redirect_uri_mismatch`.
-- Confirm the production Vercel URL in Supabase Auth URL Configuration as Site
-  URL / redirect allowlist from the dashboard if possible. The live redirect
-  behavior already indicates the URL is allowlisted.
+- Supabase Auth URL Configuration has been manually corrected:
+  - Site URL uses `https://tomato-syndicate-ten.vercel.app`.
+  - Production redirect URL is allowlisted.
+  - Localhost / `127.0.0.1` redirect URLs were removed.
 - Google OAuth provider console should include:
   - Authorized JavaScript origin: `https://tomato-syndicate-ten.vercel.app`
   - Authorized redirect URI:
@@ -101,11 +150,10 @@ Handoff brief. Paste relevant parts into a new chat to continue.
   click-through and production redirect back into the app passed manual QA.
 - Confirm Supabase email templates from the dashboard if desired. The observed
   production magic-link behavior is working.
-- New auth links should always return to
-  `https://tomato-syndicate-ten.vercel.app/`, even if the sign-in is initiated
-  from a local preview tab.
-- Ask for a fresh magic link after deployment; older links can still contain the
-  previous localhost redirect.
+- New auth links should return to
+  `https://tomato-syndicate-ten.vercel.app/`. If a future test returns to local,
+  first check for an old magic link or a re-added localhost redirect URL in
+  Supabase Auth URL Configuration.
 
 ### 1a. Apple Auth decision
 - **Decision: defer Apple Sign-In for now.** Current Supabase settings show
@@ -136,9 +184,52 @@ Handoff brief. Paste relevant parts into a new chat to continue.
   populate → remove/block → data drops. (`coreykinsman` + `erg_wake` already exist
   and are accepted friends.)
 
-### 3. Add PWA basics
-- `manifest.json`, icons, a service worker, install + offline behavior.
-- Independent of backend; can be parallelized. Lower risk.
+### 3. Finish production PWA verification
+- Local PWA files are in place:
+  - `public/manifest.webmanifest`
+  - `public/icons/icon.svg`
+  - `public/icons/icon-192.png`
+  - `public/icons/icon-512.png`
+  - `public/icons/maskable-512.png`
+  - `public/icons/apple-touch-icon.png`
+  - `public/sw.js`
+- `src/main.jsx` registers `/sw.js` only in production builds, so local Vite dev
+  does not get a sticky development service worker.
+- The service worker is same-origin only. It caches the app shell, Vite assets,
+  manifest, and icon files; it does not intercept Supabase API/auth traffic and
+  does not change the localStorage mirror.
+- Local verification on 2026-06-04:
+  - PASS: `npm.cmd run build`
+  - PASS: `dist/` contains manifest, service worker, and icon assets.
+  - PASS: built manifest parses and includes 192px, 512px, and maskable 512px
+    PNG icons.
+- Production verification on 2026-06-04:
+  - PASS: deployed production `dpl_9CNhkrWYHWQaJ7zQ6xW6EYQjcmam`.
+  - PASS: deployed follow-up auth fix `dpl_4RtWyYy3pfb6AaFNrbotaoedt991` with
+    Google `prompt=select_account`.
+  - PASS: production alias `https://tomato-syndicate-ten.vercel.app` points to
+    the new deployment.
+  - PASS: production returns HTTP 200 for `/`, `/manifest.webmanifest`, `/sw.js`,
+    `/icons/icon.svg`, `/icons/icon-192.png`, `/icons/icon-512.png`,
+    `/icons/maskable-512.png`, and `/icons/apple-touch-icon.png`.
+  - PASS: manifest content parses and includes standalone display, root
+    start/scope, theme/background colors, and maskable icon.
+  - PASS: production service worker content includes the app/runtime cache names,
+    same-origin guard, and Vite asset caching.
+  - PASS: production JS bundle contains both the canonical auth redirect URL and
+    `select_account`.
+  - PASS: Vercel SSO deployment protection was disabled after phone OAuth was
+    redirected to Access Required. Follow-up checks showed `ssoProtection: null`
+    and previously protected aliases returning HTTP 200.
+  - BLOCKED: in-app browser automation still fails to start in the Windows
+    sandbox; Lighthouse also fails during Chrome temp cleanup before writing a
+    report.
+- Next manual checks:
+  - Confirm production Chrome/Edge shows the app as installable.
+  - Install on phone and confirm launch from home screen.
+  - After one successful online load, toggle offline and confirm the app shell
+    reloads. Cloud data sync should still require network; keep localStorage
+    mirror behavior unchanged.
 
 ### 4. Decide offline strategy, then refactor
 - Decide whether to keep the localStorage mirror or build the real per-record

@@ -875,7 +875,10 @@ function SignInView({ localData, onDemo }) {
     try {
       const { error } = await supa.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: AUTH_REDIRECT_URL },
+        options: {
+          redirectTo: AUTH_REDIRECT_URL,
+          queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
+        },
       });
       if (error) throw error;
     } catch (e) {
