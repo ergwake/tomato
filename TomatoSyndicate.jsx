@@ -296,13 +296,32 @@ function downloadCSV(filename, rows) {
 }
 const live = (arr) => (arr || []).filter((x) => !x.deletedAt);
 
+function firstHarvestDatesByPlant(harvests) {
+  const firsts = {};
+  live(harvests).forEach((h) => {
+    if (!h.plantId || !h.harvestDate || (h.quantityCount || 0) <= 0) return;
+    if (!firsts[h.plantId] || h.harvestDate < firsts[h.plantId]) firsts[h.plantId] = h.harvestDate;
+  });
+  return firsts;
+}
+
+function applyFirstHarvestDates(plants, harvests, onlyPlantIds = null, updatedAt = null) {
+  const firsts = firstHarvestDatesByPlant(harvests);
+  return plants.map((p) => {
+    if (onlyPlantIds && !onlyPlantIds.has(p.id)) return p;
+    const firstHarvestDate = firsts[p.id] || null;
+    if ((p.firstHarvestDate || null) === firstHarvestDate) return p;
+    return { ...p, firstHarvestDate, ...(updatedAt ? { updatedAt } : {}) };
+  });
+}
+
 function buildSeasonView(data, activeSeason) {
   const gardens = live(data?.gardens);
   const beds = live(data?.beds);
-  const seasonPlants = data && activeSeason ? live(data.plants).filter((p) => p.seasonId === activeSeason.id) : [];
+  const rawSeasonPlants = data && activeSeason ? live(data.plants).filter((p) => p.seasonId === activeSeason.id) : [];
   const gardenIds = new Set(gardens.map((g) => g.id));
   const bedIds = new Set(beds.map((b) => b.id));
-  const plantIds = new Set(seasonPlants.map((p) => p.id));
+  const plantIds = new Set(rawSeasonPlants.map((p) => p.id));
   const rawSessions = data && activeSeason ? live(data.sessions).filter((s) => s.seasonId === activeSeason.id) : [];
   const rawSessionIds = new Set(rawSessions.map((s) => s.id));
   const allSeasonHarvests = data ? live(data.harvests).filter((h) => rawSessionIds.has(h.sessionId)) : [];
@@ -310,6 +329,7 @@ function buildSeasonView(data, activeSeason) {
   const sessions = rawSessions.filter((s) => harvestSessionIds.has(s.id));
   const sessionIds = new Set(sessions.map((s) => s.id));
   const harvests = allSeasonHarvests.filter((h) => sessionIds.has(h.sessionId) && plantIds.has(h.plantId));
+  const seasonPlants = applyFirstHarvestDates(rawSeasonPlants, harvests);
   const countByPlant = {};
   harvests.forEach((h) => { countByPlant[h.plantId] = (countByPlant[h.plantId] || 0) + (h.quantityCount || 0); });
   const activePlants = seasonPlants.filter((p) => p.status === "active");
@@ -1088,18 +1108,14 @@ function HarvestView({ ctx }) {
       id: sid, seasonId: activeSeason.id, harvestDate: date, notes: "",
       createdAt: t, updatedAt: t, deletedAt: null, syncedAt: t,
     };
+    const affectedPlantIds = new Set(rows.map((r) => r.plantId));
 
     // Atomic local update
     patch((dd) => ({
       ...dd,
       sessions: [...dd.sessions, sessionObj],
       harvests: [...dd.harvests, ...rows],
-      plants: dd.plants.map((p) => {
-        const r = rows.find((x) => x.plantId === p.id && x.quantityCount > 0);
-        if (r && (!p.firstHarvestDate || date < p.firstHarvestDate))
-          return { ...p, firstHarvestDate: date, updatedAt: t };
-        return p;
-      }),
+      plants: applyFirstHarvestDates(dd.plants, [...dd.harvests, ...rows], affectedPlantIds, t),
     }));
 
     // Supabase sync as a batch so a harvest session does not outlive its rows.
@@ -1110,12 +1126,10 @@ function HarvestView({ ctx }) {
         if (sessionResult.error) throw sessionResult.error;
         const rowsResult = await supa.from("harvests").upsert(rows.map((r) => toDb({ ...r, userId })));
         if (rowsResult.error) throw rowsResult.error;
-        for (const r of rows) {
-          const p = data.plants.find((x) => x.id === r.plantId);
-          if (r.quantityCount > 0 && p && (!p.firstHarvestDate || date < p.firstHarvestDate)) {
-            const plantResult = await supa.from("plants").update({ first_harvest_date: date, updated_at: t }).eq("id", r.plantId);
-            if (plantResult.error) throw plantResult.error;
-          }
+        const nextPlants = applyFirstHarvestDates(data.plants, [...data.harvests, ...rows], affectedPlantIds, t);
+        for (const p of nextPlants.filter((plant) => affectedPlantIds.has(plant.id))) {
+          const plantResult = await supa.from("plants").update(toDb({ firstHarvestDate: p.firstHarvestDate, updatedAt: t })).eq("id", p.id);
+          if (plantResult.error) throw plantResult.error;
         }
       } catch (e) {
         console.warn("Harvest cloud sync failed:", e.message);
@@ -1127,14 +1141,21 @@ function HarvestView({ ctx }) {
     const total = rows.reduce((a, r) => a + r.quantityCount, 0);
     setDraft({});
     showToast(`Logged ${total} tomato${total === 1 ? "" : "s"}  /  ${rows.length} plant${rows.length === 1 ? "" : "s"}`, () => {
+      const undoAt = nowISO();
+      const affectedPlantIds = new Set(rows.map((r) => r.plantId));
+      const nextPlants = applyFirstHarvestDates(data.plants, data.harvests, affectedPlantIds, undoAt);
       patch((dd) => ({
         ...dd,
         sessions: dd.sessions.filter((s) => s.id !== sid),
         harvests: dd.harvests.filter((h) => h.sessionId !== sid),
+        plants: applyFirstHarvestDates(dd.plants, dd.harvests.filter((h) => h.sessionId !== sid), affectedPlantIds, undoAt),
       }));
       if (session) {
         supaSync("harvest_sessions", "delete", null, sid);
         rows.forEach((r) => supaSync("harvests", "delete", null, r.id));
+        nextPlants
+          .filter((p) => affectedPlantIds.has(p.id))
+          .forEach((p) => supaSync("plants", "update", toDb({ firstHarvestDate: p.firstHarvestDate, updatedAt: undoAt }), p.id));
       }
     });
   };
@@ -1693,9 +1714,10 @@ function competitorStats({ profile, seasons, plants, sessions, harvests }, activ
   const season = seasons.find((s) => s.year === activeSeason?.year) ||
     seasons.find((s) => s.isActive) ||
     seasons.slice().sort((a, b) => (b.year || 0) - (a.year || 0))[0];
-  const seasonPlants = season ? live(plants).filter((p) => p.seasonId === season.id) : [];
+  const rawSeasonPlants = season ? live(plants).filter((p) => p.seasonId === season.id) : [];
   const seasonSessionIds = new Set(season ? live(sessions).filter((s) => s.seasonId === season.id).map((s) => s.id) : []);
   const seasonHarvests = live(harvests).filter((h) => seasonSessionIds.has(h.sessionId));
+  const seasonPlants = applyFirstHarvestDates(rawSeasonPlants, seasonHarvests);
   const counts = {};
   seasonHarvests.forEach((h) => { counts[h.plantId] = (counts[h.plantId] || 0) + (h.quantityCount || 0); });
   const goldenPlant = seasonPlants
@@ -2393,32 +2415,67 @@ function ProfileModal({ ctx, close }) {
 }
 
 function SessionModal({ ctx, payload, close }) {
-  const { data, upd, softDelete, setModal, showToast } = ctx;
+  const { data, patch, setModal, showToast, supaSync } = ctx;
   const session = data.sessions.find((s) => s.id === payload.id) || payload;
   const harvests = live(data.harvests).filter((h) => h.sessionId === session.id);
   const [date, setDate] = useState(session.harvestDate);
 
-  const setCount = (hid, val) => upd("harvests", hid, { quantityCount: Math.max(0, val) });
+  const patchHarvestState = (nextHarvests, affectedPlantIds, updatedAt, extra = {}) => {
+    const nextPlants = applyFirstHarvestDates(data.plants, nextHarvests, affectedPlantIds, updatedAt);
+    patch((d) => ({ ...d, ...extra, harvests: nextHarvests, plants: nextPlants }));
+    nextPlants
+      .filter((p) => affectedPlantIds.has(p.id))
+      .forEach((p) => supaSync("plants", "update", toDb({ firstHarvestDate: p.firstHarvestDate, updatedAt }), p.id));
+  };
+
+  const setCount = (hid, val) => {
+    const h = data.harvests.find((x) => x.id === hid);
+    if (!h) return;
+    const updatedAt = nowISO();
+    const quantityCount = Math.max(0, val);
+    const nextHarvests = data.harvests.map((x) => x.id === hid ? { ...x, quantityCount, updatedAt } : x);
+    patchHarvestState(nextHarvests, new Set([h.plantId]), updatedAt);
+    supaSync("harvests", "update", toDb({ quantityCount, updatedAt }), hid);
+  };
   const delEntry = (h) => {
     const plant = data.plants.find((p) => p.id === h.plantId);
-    softDelete("harvests", h.id);
-    showToast(`Removed ${plant ? plant.plantLabel : "entry"}`, () => upd("harvests", h.id, { deletedAt: null }));
+    const updatedAt = nowISO();
+    const affectedPlantIds = new Set([h.plantId]);
+    const nextHarvests = data.harvests.map((x) => x.id === h.id ? { ...x, deletedAt: updatedAt, updatedAt } : x);
+    patchHarvestState(nextHarvests, affectedPlantIds, updatedAt);
+    supaSync("harvests", "update", toDb({ deletedAt: updatedAt, updatedAt }), h.id);
+    showToast(`Removed ${plant ? plant.plantLabel : "entry"}`, () => {
+      const undoAt = nowISO();
+      const restoredHarvests = data.harvests.map((x) => x.id === h.id ? { ...x, deletedAt: null, updatedAt: undoAt } : x);
+      patchHarvestState(restoredHarvests, affectedPlantIds, undoAt);
+      supaSync("harvests", "update", toDb({ deletedAt: null, updatedAt: undoAt }), h.id);
+    });
   };
   const delSession = () => {
     setModal({ type: "confirm", payload: {
       title: "Delete this session?",
       body: `All ${harvests.length} entries from ${fmtDate(session.harvestDate)} will be removed and analytics will recalculate.`,
       confirm: () => {
-        softDelete("sessions", session.id);
-        harvests.forEach((h) => softDelete("harvests", h.id));
+        const updatedAt = nowISO();
+        const affectedPlantIds = new Set(harvests.map((h) => h.plantId));
+        const nextSessions = data.sessions.map((s) => s.id === session.id ? { ...s, deletedAt: updatedAt, updatedAt } : s);
+        const nextHarvests = data.harvests.map((h) => h.sessionId === session.id ? { ...h, deletedAt: updatedAt, updatedAt } : h);
+        patchHarvestState(nextHarvests, affectedPlantIds, updatedAt, { sessions: nextSessions });
+        supaSync("harvest_sessions", "update", toDb({ deletedAt: updatedAt, updatedAt }), session.id);
+        harvests.forEach((h) => supaSync("harvests", "update", toDb({ deletedAt: updatedAt, updatedAt }), h.id));
         close();
       },
     } });
   };
   const saveDate = (v) => {
+    const updatedAt = nowISO();
+    const affectedPlantIds = new Set(harvests.map((h) => h.plantId));
+    const nextSessions = data.sessions.map((s) => s.id === session.id ? { ...s, harvestDate: v, updatedAt } : s);
+    const nextHarvests = data.harvests.map((h) => h.sessionId === session.id ? { ...h, harvestDate: v, updatedAt } : h);
     setDate(v);
-    upd("sessions", session.id, { harvestDate: v });
-    harvests.forEach((h) => upd("harvests", h.id, { harvestDate: v }));
+    patchHarvestState(nextHarvests, affectedPlantIds, updatedAt, { sessions: nextSessions });
+    supaSync("harvest_sessions", "update", toDb({ harvestDate: v, updatedAt }), session.id);
+    harvests.forEach((h) => supaSync("harvests", "update", toDb({ harvestDate: v, updatedAt }), h.id));
   };
 
   const total = harvests.reduce((a, h) => a + (h.quantityCount || 0), 0);
