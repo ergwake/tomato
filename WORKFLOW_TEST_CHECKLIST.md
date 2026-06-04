@@ -21,6 +21,10 @@ Use this checklist for manual QA before deployment and again after production OA
   `mail_type=magic_link`.
 - PASS: Manual production browser run confirmed Google callback, magic-link inbox
   click, refresh persistence, sign-out, and same-cloud-data reload all work.
+- FIXED LOCALLY: Google OAuth and email magic-link requests now force
+  `https://tomato-syndicate-ten.vercel.app/` as the auth callback instead of
+  deriving it from `window.location`, preventing new links from returning to
+  `127.0.0.1`.
 - BLOCKED: Apple sign-in is intentionally deferred. Supabase Apple provider is
   disabled and `/authorize?provider=apple` returns 400 `provider is not enabled`.
   The Apple button is disabled locally until Apple Developer credentials are

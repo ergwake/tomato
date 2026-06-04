@@ -45,19 +45,17 @@ Handoff brief. Paste relevant parts into a new chat to continue.
     click, refresh persistence, sign-out, and same-cloud-data reload all work.
   - Apple Auth remains intentionally deferred; the Apple button is disabled in
     the app locally until Apple Developer credentials are available.
-  - Production redeploy for the Apple-disabled UI is still blocked: Vercel CLI
-    created production deployments that stayed `BLOCKED` / `UNKNOWN` with no
-    build logs and could not be promoted. The live production URL still serves
-    the prior asset until this is deployed through Vercel dashboard/Git or the
-    Vercel deployment block is resolved.
+  - Auth redirects are now hardcoded to the production Vercel URL
+    `https://tomato-syndicate-ten.vercel.app/` for both Google OAuth and email
+    magic links, so new sign-in flows cannot return to `127.0.0.1`.
 
 ## What is NOT yet done (the remaining risk)
 
-1. **Deploy the Apple-disabled UI.** Production Google auth, email magic-link
+1. **Retest production auth on phone.** Production Google auth, email magic-link
    auth, refresh persistence, sign-out, and same-cloud-data reload passed manual
-   QA. Apple Auth is disabled in Supabase and the app button is disabled locally,
-   but the Vercel production deploy is blocked until a ready deployment can be
-   created/promoted.
+   desktop QA. The app now forces Google/email auth callbacks to
+   `https://tomato-syndicate-ten.vercel.app/`; after deployment, request a fresh
+   magic link from production and confirm it no longer returns to `127.0.0.1`.
 2. **Deployment exists.** App is deployed to Vercel under `erg.wake@gmail.com`
    / `erg-wake`.
    - Production URL: `https://tomato-syndicate-ten.vercel.app`
@@ -78,7 +76,7 @@ Handoff brief. Paste relevant parts into a new chat to continue.
 
 ## Recommended order for the next session
 
-### 1. Ship Apple-disabled auth UI / redeploy
+### 1. Retest production auth on phone
 - Deployment is live on Vercel:
   `https://tomato-syndicate-ten.vercel.app`.
 - Vercel account verified as `erg.wake@gmail.com` / `ergwake`.
@@ -103,15 +101,11 @@ Handoff brief. Paste relevant parts into a new chat to continue.
   click-through and production redirect back into the app passed manual QA.
 - Confirm Supabase email templates from the dashboard if desired. The observed
   production magic-link behavior is working.
-- Redeploy after the Apple button disable change so production users cannot
-  trigger the unconfigured Apple provider.
-- Attempted Vercel CLI deploys:
-  - `dpl_AUeRZiom9fZ5nqgHqSAyeUj4p2oG` -- `BLOCKED` / `UNKNOWN`, no logs.
-  - `dpl_DMNAmrSpFpcFTrDW2V316hsz6bGU` -- `BLOCKED` / `UNKNOWN`, no logs.
-  - `dpl_JAR8PqiVH5JHgdn45LCUrYfcbik5` -- `BLOCKED` / `UNKNOWN`, no logs;
-    `vercel promote` failed because the deployment was not ready.
-  - Production alias `https://tomato-syndicate-ten.vercel.app/` still serves the
-    previous asset `index-BkFmtdo3.js`.
+- New auth links should always return to
+  `https://tomato-syndicate-ten.vercel.app/`, even if the sign-in is initiated
+  from a local preview tab.
+- Ask for a fresh magic link after deployment; older links can still contain the
+  previous localhost redirect.
 
 ### 1a. Apple Auth decision
 - **Decision: defer Apple Sign-In for now.** Current Supabase settings show

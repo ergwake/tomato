@@ -17,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 /* ------------------------------------------------------------------ */
 const SUPA_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const AUTH_REDIRECT_URL = "https://tomato-syndicate-ten.vercel.app/";
 const supa = createClient(SUPA_URL, SUPA_KEY, {
   auth: {
     autoRefreshToken: true,
@@ -867,7 +868,6 @@ function SignInView({ localData, onDemo }) {
   const [email, setEmail] = useState("");
   const [authMessage, setAuthMessage] = useState("");
   const [authError, setAuthError] = useState("");
-  const authRedirectTo = () => window.location.origin + window.location.pathname;
   const signIn = async (provider) => {
     setLoading(provider);
     setAuthMessage("");
@@ -875,7 +875,7 @@ function SignInView({ localData, onDemo }) {
     try {
       const { error } = await supa.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: authRedirectTo() },
+        options: { redirectTo: AUTH_REDIRECT_URL },
       });
       if (error) throw error;
     } catch (e) {
@@ -894,7 +894,7 @@ function SignInView({ localData, onDemo }) {
       const { error } = await supa.auth.signInWithOtp({
         email: trimmed,
         options: {
-          emailRedirectTo: authRedirectTo(),
+          emailRedirectTo: AUTH_REDIRECT_URL,
           shouldCreateUser: true,
         },
       });
